@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Score Bourse</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#14181f;--mut:#6b7380;--bd:#e3e6ea;--g:#1a9d5c;--o:#d98a0b;--r:#d6453d;--ac:#2f5bea}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1318;--card:#181e26;--tx:#eceff3;--mut:#93a0b0;--bd:#2a323d;--g:#35c27f;--o:#f0a826;--r:#f06a62;--ac:#7c9bff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,sans-serif;padding:12px;max-width:640px;margin:auto}
+.mut{color:var(--mut);font-size:12.5px}.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;margin:8px 0}
+.row{display:flex;align-items:center;gap:10px}.grow{flex:1}
+.score{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;flex:none}
+.tag{font-size:12px;font-weight:600;padding:2px 8px;border-radius:20px;color:#fff}
+.bar{height:8px;background:var(--bd);border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ac)}
+.star{background:none;border:0;font-size:20px;color:var(--o)}.btn{padding:8px 12px;border:0;border-radius:10px;background:var(--ac);color:#fff;font:inherit}
+.alert{border-left:4px solid var(--o);padding:8px 10px;margin:6px 0;background:var(--card);border-radius:8px;font-size:13.5px}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:6px;border-bottom:1px solid var(--bd);text-align:left}
+</style></head><body>
+<h2 style="margin:4px 0">📈 Score Bourse</h2><div class="mut" id="up">Chargement…</div>
+<div class="mut">Profil prudent. Ce n’est pas un conseil en investissement.</div>
+<div id="al"></div><div id="v"></div>
+<script>
+const COL={"Acheter":"var(--g)","Surveiller":"var(--o)","Ne pas acheter":"var(--r)"};
+let S=[],W=[],sel=null,cmp=[];
+try{W=JSON.parse(localStorage.getItem("w")||"[]")}catch(e){}
+const sv=()=>{try{localStorage.setItem("w",JSON.stringify(W))}catch(e){}};
+const f=(x,u="")=>x==null?"n/d":x+u;
+function chart(h){const mn=Math.min(...h),mx=Math.max(...h),k=300/(h.length-1);
+return`<svg viewBox="0 0 300 90" width="100%"><polyline fill="none" stroke="var(--ac)" stroke-width="2" points="${h.map((y,i)=>i*k+","+(85-(y-mn)/(mx-mn||1)*80)).join(" ")}"/></svg>`}
+function card(s){return`<div class="card row" data-o="${s.id}"><div class="score" style="background:${COL[s.verdict]}">${s.score}</div><div class="grow"><b>${s.n}</b> <span class="mut">${f(s.p," €")}</span><br><span class="tag" style="background:${COL[s.verdict]}">${s.verdict}</span></div><button class="star" data-w="${s.id}">${W.includes(s.id)?"★":"☆"}</button></div>`}
+function render(){
+let a="";S.filter(s=>W.includes(s.id)&&s.verdict!="Surveiller").forEach(s=>a+=`<div class="alert" style="border-color:${COL[s.verdict]}"><b>${s.n}</b> : ${s.verdict} (${s.score}/100)</div>`);
+document.getElementById("al").innerHTML=a;
+const v=document.getElementById("v");
+if(sel){const s=S.find(x=>x.id==sel);v.innerHTML=`<button class="btn" data-b="1">← Retour</button><div class="card row"><div class="score" style="background:${COL[s.verdict]};width:64px;height:64px;font-size:22px">${s.score}</div><div><b>${s.n}</b><br><span class="tag" style="background:${COL[s.verdict]}">${s.verdict}</span></div></div>${s.cap?'<div class="mut">Plafonné à 69 : dette ou volatilité élevée (profil prudent).</div>':""}<div class="card">${chart(s.h)}<div class="mut">90 derniers jours</div></div><div class="card">${Object.entries(s.crit).map(([k,x])=>`<div style="margin:6px 0"><div class="row"><span class="grow">${k}</span><b>${x}%</b></div><div class="bar"><i style="width:${x}%"></i></div></div>`).join("")}</div><div class="card mut">Cours ${f(s.p," €")} · MM50 ${s.m50} · MM200 ${s.m200} · RSI ${s.rsi}<br>PER ${f(s.per&&Math.round(s.per*10)/10)} · Croissance bénéfices ${f(s.g,"%")} · Dette/EBITDA ${f(s.d)}<br>Dividende ${f(s.y,"%")} · Avis analystes ${f(s.s)} · Bêta ${f(s.b&&Math.round(s.b*100)/100)}</div>`;return}
+v.innerHTML=`<div class="row" style="flex-wrap:wrap;margin:6px 0">${S.map(s=>`<button class="btn" style="background:${cmp.includes(s.id)?"var(--ac)":"var(--mut)"}" data-c="${s.id}">${s.id.replace(".PA","")}</button>`).join("")}</div><div class="mut">Touche jusqu’à 3 actions pour comparer.</div>`
++(cmp.length?`<div class="card" style="overflow-x:auto"><table><tr><th></th>${cmp.map(i=>`<th>${i.replace(".PA","")}</th>`).join("")}</tr><tr><td>Score</td>${cmp.map(i=>`<td><b>${S.find(x=>x.id==i).score}</b></td>`).join("")}</tr><tr><td>Verdict</td>${cmp.map(i=>`<td>${S.find(x=>x.id==i).verdict}</td>`).join("")}</tr>${Object.keys(S[0].crit).map(k=>`<tr><td>${k}</td>${cmp.map(i=>`<td>${S.find(x=>x.id==i).crit[k]}%</td>`).join("")}</tr>`).join("")}</table></div>`:"")
++[...S].sort((a,b)=>b.score-a.score).map(card).join("")}
+document.addEventListener("click",e=>{const t=e.target;
+if(t.dataset.w){const i=t.dataset.w;W=W.includes(i)?W.filter(x=>x!=i):[...W,i];sv()}
+else if(t.dataset.b)sel=null;
+else if(t.dataset.c){const i=t.dataset.c;cmp=cmp.includes(i)?cmp.filter(x=>x!=i):[...cmp,i].slice(-3)}
+else if(t.closest("[data-o]"))sel=t.closest("[data-o]").dataset.o;else return;
+if(S.length)render()});
+fetch("data.json?"+Date.now()).then(r=>r.json()).then(d=>{S=d.stocks;
+document.getElementById("up").textContent=d.updated?"Données du "+new Date(d.updated).toLocaleString("fr-FR"):"Aucune donnée : lance la mise à jour dans GitHub (voir README).";
+if(S.length)render()}).catch(()=>document.getElementById("up").textContent="Erreur de chargement");
+</script></body></html>
