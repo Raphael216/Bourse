@@ -1,25 +1,38 @@
 name: Mise à jour des scores
 on:
   schedule:
-    - cron: "*/10 7-16 * * 1-5"
+    - cron: "*/30 7-16 * * 1-5"
   workflow_dispatch:
 permissions:
   contents: write
+concurrency:
+  group: maj-scores
+  cancel-in-progress: false
 jobs:
   update:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
+      - name: Vérifier l'heure de Paris
+        id: hr
+        run: |
+          H=$((10#$(TZ=Europe/Paris date +%H%M)))
+          if [ "${{ github.event_name }}" = "schedule" ] && { [ "$H" -lt 900 ] || [ "$H" -gt 1735 ]; }; then echo "go=no" >> "$GITHUB_OUTPUT"; else echo "go=yes" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/checkout@v4
+        if: steps.hr.outputs.go == 'yes'
       - uses: actions/setup-python@v5
+        if: steps.hr.outputs.go == 'yes'
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
+        if: steps.hr.outputs.go == 'yes'
       - run: python scripts/update.py
+        if: steps.hr.outputs.go == 'yes'
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
       - name: Enregistrer les données
+        if: steps.hr.outputs.go == 'yes'
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
-          git add docs/data.json
+          git add docs/*.json
           git diff --staged --quiet || (git commit -m "maj données" && git push)
