@@ -1,69 +1,167 @@
 <!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Score Bourse</title>
+<title>Score Bourse</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><meta name="theme-color" content="#2f5bea">
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--tx:#14181f;--mut:#6b7380;--bd:#e3e6ea;--ac:#2f5bea;--c0:#0b7a45;--c1:#2fa866;--c2:#d99a0b;--c3:#e0742a;--c4:#d6453d}
 @media(prefers-color-scheme:dark){:root{--bg:#0f1318;--card:#181e26;--tx:#eceff3;--mut:#93a0b0;--bd:#2a323d;--ac:#7c9bff;--c0:#1fa862;--c1:#4cc17f;--c2:#f0b030;--c3:#f08a45;--c4:#f06a62}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,sans-serif;padding:12px;max-width:680px;margin:auto}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,sans-serif;padding:12px 12px 90px;max-width:700px;margin:auto}
 .mut{color:var(--mut);font-size:12.5px}.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;margin:8px 0}
 .row{display:flex;align-items:center;gap:10px}.grow{flex:1;min-width:0}.w{flex-wrap:wrap}
 .score{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;flex:none}
 .tag{font-size:12px;font-weight:600;padding:2px 8px;border-radius:20px;color:#fff}
 .bar{height:8px;background:var(--bd);border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ac)}
-.btn{padding:8px 11px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font:inherit}.on{background:var(--ac);color:#fff;border-color:var(--ac)}
-.star{background:none;border:0;font-size:20px;color:var(--c2)}.al{border-left:4px solid var(--c2);padding:7px 10px;margin:5px 0;background:var(--card);border-radius:8px;font-size:13.5px}
+.btn{padding:7px 10px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font:inherit}.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.star{background:none;border:0;font-size:20px;color:var(--c2)}.i{background:none;border:0;color:var(--ac);font-size:14px;padding:0 3px;cursor:pointer}
+.al{border-left:4px solid var(--c2);padding:7px 10px;margin:5px 0;background:var(--card);border-radius:8px;font-size:13.5px}
 .fl{background:#e0742a22;border:1px solid var(--c3);border-radius:8px;padding:5px 8px;margin:4px 0;font-size:13px}
 input,select{padding:7px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--tx);font:inherit;max-width:100%}
 table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:6px;border-bottom:1px solid var(--bd);text-align:left}
+#pop{position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));max-width:680px;margin:auto;background:var(--card);border:1px solid var(--ac);border-radius:14px;padding:12px;box-shadow:0 6px 24px #0004;z-index:9}
 </style></head><body>
 <h2 style="margin:4px 0">📈 Score Bourse</h2>
 <div id="mk" class="mut">Chargement…</div>
-<div class="row w" style="margin:8px 0" id="tabs"></div>
-<div id="al"></div><div id="v"></div>
+<div class="row w" style="margin:8px 0" id="pro"></div><div class="row w" style="margin:8px 0" id="tabs"></div>
+<div id="al"></div><div id="v"></div><div id="pop" hidden></div>
 <script>
-const N=["Achat fort","Acheter","Surveiller","Alléger","Éviter"],TB=[["list","Actions"],["watch","Suivi"],["cmp","Comparer"],["pf","Portefeuille"],["log","Journal"],["how","Méthode"]];
-let S=[],M={},LOG=[],W=[],PF=[],BT=null,P={cap:10000,risk:1},tab="list",sel=null,cmp=[],F={sec:"",q:"",sort:"score",pea:false};
-try{W=JSON.parse(localStorage.getItem("w")||"[]");P=JSON.parse(localStorage.getItem("p")||JSON.stringify(P));PF=JSON.parse(localStorage.getItem("pf")||"[]")}catch(e){}
-const sv=()=>{try{localStorage.setItem("w",JSON.stringify(W));localStorage.setItem("p",JSON.stringify(P));localStorage.setItem("pf",JSON.stringify(PF))}catch(e){}};
-const col=s=>s.cat==null?"var(--mut)":`var(--c${s.cat})`,f=(x,u="")=>x==null?"n/d":x+u;
-const tag=s=>`<span class="tag" style="background:${col(s)}">${s.verdict}</span>`;
-function chart(h){const mn=Math.min(...h),mx=Math.max(...h),k=300/(h.length-1);return`<svg viewBox="0 0 300 90" width="100%"><polyline fill="none" stroke="var(--ac)" stroke-width="2" points="${h.map((y,i)=>i*k+","+(85-(y-mn)/(mx-mn||1)*80)).join(" ")}"/></svg>`}
-function card(s){return`<div class="card row" data-o="${s.id}"><div class="score" style="background:${col(s)}">${s.score}</div><div class="grow"><b>${s.n}</b> <span class="mut">${f(s.p," €")} · ${s.sector}</span><br>${tag(s)}${s.flags.length?" ⚠️":""}</div><button class="star" data-w="${s.id}">${W.includes(s.id)?"★":"☆"}</button></div>`}
-function detail(s){const q=Math.floor(P.cap*P.risk/100/Math.max(s.p-s.stop,.01));
-return`<button class="btn" data-b="1">← Retour</button><div class="card row"><div class="score" style="background:${col(s)};width:64px;height:64px;font-size:22px">${s.score}</div><div><b style="font-size:18px">${s.n}</b><br>${tag(s)} <span class="mut">${s.sector}</span></div></div>
+const G={
+"Score":"Note de 0 à 100 qui résume l’intérêt d’une action. Plus il est haut, plus les signaux sont favorables. C’est une aide, pas une prévision.",
+"Tendance":"Mesure si le cours monte, par rapport à ses moyennes, son RSI, son MACD, le CAC 40 et les volumes.",
+"Fondamentaux":"Mesure si l’entreprise est bien valorisée et rentable : PER, croissance, marges, rentabilité.",
+"Solidité":"Mesure la robustesse financière : dette faible et dividende (ou rentabilité pour les banques et assurances).",
+"Analystes/actus":"Mélange l’avis moyen des analystes professionnels et le ton des dernières actualités.",
+"Risque":"Mesure à quel point l’action est agitée : bêta, volatilité et pire baisse sur un an. Plus la note est haute, moins l’action est risquée.",
+"Achat fort":"Presque tous les voyants sont au vert. Signal le plus favorable, sans garantie.",
+"Acheter":"Les signaux sont globalement bons. L’action peut être envisagée à l’achat.",
+"Surveiller":"Signaux mitigés. Mieux vaut attendre une amélioration avant d’agir.",
+"Alléger":"Signaux dégradés. Si tu détiens l’action, envisage de réduire la position.",
+"Éviter":"Signaux mauvais. Ne pas acheter, et envisager de vendre si tu en détiens.",
+"Données insuffisantes":"Trop d’informations manquent pour juger sérieusement : aucun verdict n’est donné.",
+"Confiance":"Fiabilité du score : baisse si des données manquent, sont anciennes, aberrantes ou différentes selon les sources.",
+"Profil":"Réglage de ta prudence. Prudent : exigeant, plafonne les actions risquées. Équilibré : intermédiaire. Offensif : accepte plus de risque.",
+"CAC 40":"Indice des 40 grandes entreprises françaises. S’il est sous sa moyenne 200 jours, le marché est fragile et le profil prudent retire des points.",
+"Marché ouvert":"La Bourse de Paris est ouverte de 9h à 17h30, du lundi au vendredi. Hors de ces horaires, les cours ne bougent pas.",
+"Données différées":"Les cours viennent de Yahoo Finance avec environ 15 minutes de retard.",
+"Cours":"Prix actuel d’une action en euros.",
+"MM50":"Moyenne des cours sur 50 jours. Cours au-dessus : tendance courte plutôt haussière.",
+"MM200":"Moyenne des cours sur 200 jours. Cours au-dessus : tendance de fond haussière.",
+"RSI":"Indice de 0 à 100. Au-dessus de 70 : action possiblement trop montée. Sous 30 : trop baissé.",
+"MACD":"Indicateur de momentum. Haussier : l’élan récent est positif. Baissier : il est négatif.",
+"PER":"Cours divisé par le bénéfice par action. Bas : action peu chère. À comparer aux entreprises du même secteur.",
+"PER prévisionnel":"PER calculé sur les bénéfices attendus l’an prochain. S’il est plus bas que le PER actuel, les bénéfices devraient progresser.",
+"PEG":"PER divisé par la croissance. Proche ou sous 1 : prix raisonnable par rapport à la croissance.",
+"EV/EBITDA":"Valeur de l’entreprise (dette comprise) divisée par son résultat d’exploitation. Plus bas = moins cher.",
+"P/B":"Cours divisé par la valeur comptable. Sous 1 : l’action vaut moins que ses actifs. Utile pour banques et assurances.",
+"Rendement FCF":"Cash disponible après investissements, rapporté à la valeur de l’entreprise. Plus haut = mieux.",
+"Croissance bénéfices":"Évolution du bénéfice net entre les deux derniers exercices annuels. Plafonnée à ±30 % dans le score.",
+"Croissance CA":"Évolution du chiffre d’affaires entre les deux derniers exercices annuels.",
+"ROE":"Rentabilité des capitaux propres : bénéfice divisé par les fonds propres. Au-dessus de 15 % : bon.",
+"Marge nette":"Part du chiffre d’affaires qui reste en bénéfice. Plus haute = mieux.",
+"Dette/EBITDA":"Années de résultat d’exploitation nécessaires pour rembourser la dette nette. Sous 2 : sain. Au-dessus de 3 : élevé.",
+"Dividende":"Rendement annuel versé aux actionnaires, en % du cours.",
+"Avis analystes":"Consensus des analystes de -2 (vendre) à +2 (acheter).",
+"Actualités":"Ton des derniers titres de presse (positif, neutre, négatif), détecté automatiquement par mots-clés. Indicatif.",
+"Bêta":"Sensibilité au marché. 1 : suit le CAC 40. Plus de 1 : amplifie les mouvements. Moins de 1 : plus calme.",
+"Volatilité":"Amplitude annuelle des variations du cours. Plus elle est haute, plus l’action est agitée.",
+"Baisse max":"Pire baisse entre un sommet et un creux sur un an.",
+"ATR":"Amplitude moyenne d’une journée sur 14 jours. Sert à placer le stop.",
+"Force relative":"Performance de l’action moins celle du CAC 40. Positive : elle fait mieux que le marché.",
+"Volumes":"Quantité échangée par rapport à la normale. Volumes forts avec hausse : confirme la tendance.",
+"Résultats":"Date de publication des résultats. Avant, le cours peut varier fortement : le profil prudent plafonne le verdict.",
+"Stop":"Cours sous lequel tu vends pour limiter la perte. Suggestion : cours moins 2 fois l’ATR.",
+"Objectif":"Cours visé pour prendre ses gains. Suggestion : cours plus 3 fois l’ATR.",
+"Taille de position":"Nombre d’actions à acheter pour ne pas perdre plus que ton risque accepté si le stop est touché.",
+"PEA":"Plan d’épargne en actions. Estimation d’après le pays de l’entreprise, à confirmer auprès de ton courtier.",
+"Corrélation":"Mesure si deux actions bougent ensemble (1 = identiques, 0 = indépendantes). Moins de 0,4 : bonne diversification.",
+"Concentration":"Part d’un seul secteur ou d’une seule action dans ton portefeuille. Trop haute : risque élevé.",
+"Test historique":"Simulation sur le passé de la composante technique du score. Le passé ne garantit pas l’avenir."};
+const i=t=>`<button class="i" data-g="${t}" aria-label="Explication">ⓘ</button>`;
+const K=["Tendance","Fondamentaux","Solidité","Analystes/actus","Risque"],N=["Achat fort","Acheter","Surveiller","Alléger","Éviter"];
+const PR={Prudent:{w:[20,25,20,10,25],t:[80,65,50,35],pen:5,er:64,cr:79},"Équilibré":{w:[25,25,15,10,25],t:[75,60,45,30],pen:3,er:74,cr:100},Offensif:{w:[30,25,10,15,20],t:[70,55,40,25],pen:0,er:100,cr:100}};
+let S=[],M={},BT=null,LOG=[],DY=null,I=null,W=[],PF=[],PRO="Prudent",P={cap:10000,risk:1},tab="list",sel=null,cmp=[],F={sec:"",q:"",sort:"score",pea:false},CH={p:"1m",ma50:true,ma200:false,rsi:false},CUR=null;
+try{W=JSON.parse(localStorage.getItem("w")||"[]");P=JSON.parse(localStorage.getItem("p")||JSON.stringify(P));PF=JSON.parse(localStorage.getItem("pf")||"[]");PRO=localStorage.getItem("pro")||"Prudent"}catch(e){}
+const sv=()=>{try{localStorage.setItem("w",JSON.stringify(W));localStorage.setItem("p",JSON.stringify(P));localStorage.setItem("pf",JSON.stringify(PF));localStorage.setItem("pro",PRO)}catch(e){}};
+const f=(x,u="")=>x==null?"n/d":x+u,col=s=>s.ct==null?"var(--mut)":`var(--c${s.ct})`,tag=s=>`<span class="tag" style="background:${col(s)}">${s.vd}</span>${i(s.vd)}`;
+function apply(){const q=PR[PRO];S.forEach(s=>{let t=K.reduce((a,k,j)=>a+s.crit[k]*q.w[j]/100,0);if(!M.cac_ok)t-=q.pen;if(s.caprisk)t=Math.min(t,q.cr);if(s.earn_days!=null&&s.earn_days>=0&&s.earn_days<=5)t=Math.min(t,q.er);t=Math.max(0,Math.min(100,Math.round(t)));s.sc=t;s.ct=s.miss>=4?null:(q.t.findIndex(x=>t>=x)<0?4:q.t.findIndex(x=>t>=x));s.vd=s.ct==null?"Données insuffisantes":N[s.ct]})}
+function ser(s){const n={"1m":22,"3m":63,"1a":252}[CH.p];
+if(!n){const x=I&&I.d&&I.d[s.id];if(!x)return null;let a=CH.p=="1j"?x.j:x.w;if(CH.p=="5j"){const dd=[...new Set(a.map(z=>z[0].slice(0,5)))].slice(-5);a=a.filter(z=>dd.includes(z[0].slice(0,5)))}return a.length>1?{l:a.map(z=>z[0]),v:a.map(z=>z[1]),d:false}:null}
+const x=DY&&DY.d&&DY.d[s.id];if(!x)return null;let t=[...x.t],v=[...x.v];if(t[t.length-1]<s.last){t.push(s.last);v.push(s.p)}
+const ma=k=>v.map((_,j)=>j<k-1?null:v.slice(j-k+1,j+1).reduce((a,b)=>a+b,0)/k);let g=0,l=0;
+const rs=v.map((y,j)=>{if(!j)return null;const d=y-v[j-1];g=(g*13+Math.max(d,0))/14;l=(l*13+Math.max(-d,0))/14;return j<14?null:100-100/(1+g/(l||1e-9))});const c=a=>a.slice(-n);
+return{l:c(t),v:c(v),m50:c(ma(50)),m200:c(ma(200)),rsi:c(rs),d:true}}
+function drawCh(s){const r=ser(s);CUR=r;if(!r)return`<div class="mut">Graphique indisponible pour l’instant : les séries se remplissent après la première mise à jour du robot.</div>`;
+const mn=Math.min(...r.v),mx=Math.max(...r.v),pd=(mx-mn||1)*.08,lo=mn-pd,hi=mx+pd,Wd=320,H=140,X=j=>j*Wd/(r.v.length-1),Y=y=>H-(y-lo)/(hi-lo)*H;
+const pl=(a,c,w)=>{const p=a.map((y,j)=>y==null?null:X(j).toFixed(1)+","+Y(y).toFixed(1)).filter(Boolean).join(" ");return p?`<polyline fill="none" stroke="${c}" stroke-width="${w}" points="${p}"/>`:""};
+const hl=(y,c)=>y>lo&&y<hi?`<line x1="0" x2="${Wd}" y1="${Y(y)}" y2="${Y(y)}" stroke="${c}" stroke-dasharray="4 3"/>`:"";
+let h=`<svg id="ch" viewBox="0 0 ${Wd} ${H}" width="100%" style="touch-action:pan-y;display:block">${pl(r.v,"var(--ac)",2)}${r.d&&CH.ma50?pl(r.m50,"var(--c2)",1):""}${r.d&&CH.ma200?pl(r.m200,"var(--c4)",1):""}${hl(s.stop,"var(--c4)")}${hl(s.target,"var(--c1)")}<line id="cl" x1="-5" x2="-5" y1="0" y2="${H}" stroke="var(--mut)"/></svg>`;
+if(r.d&&CH.rsi){const Y2=y=>50-y/100*50;h+=`<svg viewBox="0 0 ${Wd} 50" width="100%" style="display:block;margin-top:4px"><line x1="0" x2="${Wd}" y1="${Y2(70)}" y2="${Y2(70)}" stroke="var(--c4)" stroke-dasharray="3 3"/><line x1="0" x2="${Wd}" y1="${Y2(30)}" y2="${Y2(30)}" stroke="var(--c1)" stroke-dasharray="3 3"/><polyline fill="none" stroke="var(--ac)" points="${r.rsi.map((y,j)=>y==null?null:X(j).toFixed(1)+","+Y2(y).toFixed(1)).filter(Boolean).join(" ")}"/></svg><div class="mut">RSI : au-dessus de la ligne rouge (70) = trop monté, sous la ligne verte (30) = trop baissé.</div>`}
+return h+`<div id="tt" style="min-height:20px;font-size:13px">Touche le graphique pour lire un cours.</div>`}
+function note(s,k){const q=(a,b)=>`${a} ${i(b)}`;return{
+"Tendance":`${q("Cours","Cours")} ${s.p} € · ${q("MM50","MM50")} ${s.m50} · ${q("MM200","MM200")} ${s.m200} · ${q("RSI","RSI")} ${s.rsi} · ${q("MACD","MACD")} ${s.macd?"haussier":"baissier"} · ${q("Force relative","Force relative")} 6 mois ${f(s.rel6," pts")} · ${q("Volumes","Volumes")} ×${f(s.volr)}`,
+"Fondamentaux":s.kind=="Standard"?`${q("PER","PER")} ${f(s.per)} (secteur ${f(s.med)}) · ${q("PER prévisionnel","PER prévisionnel")} ${f(s.fpe)} · ${q("EV/EBITDA","EV/EBITDA")} ${f(s.ev)} · ${q("Rendement FCF","Rendement FCF")} ${f(s.fcfy,"%")} · ${q("Croissance bénéfices","Croissance bénéfices")} ${f(s.g,"%")} · ${q("ROE","ROE")} ${f(s.roe,"%")} · ${q("Marge nette","Marge nette")} ${f(s.pm,"%")}`:`${q("PER","PER")} ${f(s.per)} (secteur ${f(s.med)}) · ${q("P/B","P/B")} ${f(s.pb)} · ${q("ROE","ROE")} ${f(s.roe,"%")} · ${q("Croissance bénéfices","Croissance bénéfices")} ${f(s.g,"%")} (type ${s.kind})`,
+"Solidité":s.kind=="Standard"?`${q("Dette/EBITDA","Dette/EBITDA")} ${f(s.d)} · ${q("Dividende","Dividende")} ${f(s.y,"%")}`:`${q("ROE","ROE")} ${f(s.roe,"%")} · ${q("Dividende","Dividende")} ${f(s.y,"%")} (la dette n’est pas pertinente pour ce type d’entreprise)`,
+"Analystes/actus":`${q("Avis analystes","Avis analystes")} ${f(s.s)} (de -2 à +2) · ${q("Actualités","Actualités")} ${s.nsent==null?"n/d":s.nsent>.2?"plutôt positives":s.nsent<-.2?"plutôt négatives":"neutres"}`,
+"Risque":`${q("Bêta","Bêta")} ${f(s.b)} · ${q("Volatilité","Volatilité")} ${s.vol} % · ${q("Baisse max","Baisse max")} ${s.mdd} %`}[k]}
+function chartCard(s){return`<div class="card"><div class="row w">${[["1j","Jour"],["5j","5 jours"],["7j","7 jours"],["1m","1 mois"],["3m","3 mois"],["1a","1 an"]].map(([k,l])=>`<button class="btn ${CH.p==k?"on":""}" data-p="${k}">${l}</button>`).join("")}</div>
+<div class="row w mut" style="margin:6px 0"><label><input type="checkbox" data-ck="ma50" ${CH.ma50?"checked":""}> MM50 (orange)</label><label><input type="checkbox" data-ck="ma200" ${CH.ma200?"checked":""}> MM200 (rouge)</label><label><input type="checkbox" data-ck="rsi" ${CH.rsi?"checked":""}> RSI</label></div>${drawCh(s)}
+<div class="mut">Ligne bleue : cours. Pointillé rouge : ${i("Stop")}stop suggéré. Pointillé vert : ${i("Objectif")}objectif. Jour, 5 et 7 jours : cours toutes les 15 min ou 1 h (moyennes et RSI disponibles à partir de 1 mois).</div></div>`}
+function card(s){return`<div class="card row" data-o="${s.id}"><div class="score" style="background:${col(s)}">${s.sc}</div><div class="grow"><b>${s.n}</b> <span class="mut">${f(s.p," €")} · ${s.sector}</span><br>${tag(s)}${s.flags.length?" ⚠️":""} <span class="mut">confiance ${s.conf} %</span></div><button class="star" data-w="${s.id}">${W.includes(s.id)?"★":"☆"}</button></div>`}
+function detail(s){const q=PR[PRO],qt=Math.floor(P.cap*P.risk/100/Math.max(s.p-s.stop,.01));
+return`<button class="btn" data-b="1">← Retour</button><div class="card row"><div class="score" style="background:${col(s)};width:64px;height:64px;font-size:22px">${s.sc}</div><div><b style="font-size:18px">${s.n}</b><br>${tag(s)}<br><span class="mut">${s.sector} · confiance ${s.conf} % ${i("Confiance")}</span></div></div>
 ${s.flags.map(x=>`<div class="fl">⚠️ ${x}</div>`).join("")}
-<div class="card">${chart(s.h)}<div class="mut">90 derniers jours · dernier cours du ${s.last}</div></div>
-<div class="card">${Object.entries(s.crit).map(([k,x])=>`<div style="margin:6px 0"><div class="row"><span class="grow">${k}</span><b>${x}%</b></div><div class="bar"><i style="width:${x}%"></i></div></div>`).join("")}</div>
-<div class="card"><b>Pourquoi ce score ?</b><ul style="margin:6px 0;padding-left:18px">${s.why.map(x=>`<li>${x}</li>`).join("")||"<li>Aucun point particulier.</li>"}</ul></div>
-<div class="card"><b>Gestion du risque</b><div class="mut">Stop suggéré (2 × ATR) : <b>${s.stop} €</b> · Objectif : <b>${s.target} €</b></div>
-<div class="row w" style="margin:8px 0"><label class="mut">Capital €<br><input id="cap" type="number" value="${P.cap}" style="width:110px"></label><label class="mut">Risque %<br><input id="rk" type="number" step="0.1" value="${P.risk}" style="width:70px"></label></div>
-<div>Taille de position : <b>${q} actions</b> (${Math.round(q*s.p)} €), pour risquer ${Math.round(P.cap*P.risk/100)} € au maximum.</div></div>
-<div class="card mut">Cours ${s.p} € · MM50 ${s.m50} · MM200 ${s.m200} · RSI ${s.rsi} · MACD ${s.macd?"haussier":"baissier"}<br>PER ${f(s.per&&Math.round(s.per*10)/10)} (secteur ${f(s.med)}) · Croissance bénéfices ${f(s.g,"%")} · ROE ${f(s.roe,"%")} · Marge ${f(s.pm,"%")}<br>Dette/EBITDA ${f(s.d)} · Dividende ${f(s.y,"%")} · Analystes ${f(s.s)} · Bêta ${f(s.b)} · Volatilité ${s.vol}% · Baisse max 1 an ${s.mdd}%<br>Prochains résultats : ${f(s.earn)}<br>Pays : ${f(s.country)} · ${s.pea?"PEA probable (à vérifier auprès de ton courtier)":"PEA improbable"}</div>`}
-function pfView(){const rows=PF.map((x,i)=>{const s=S.find(y=>y.id==x.id);return s?{...x,i,s,val:s.p*x.qty,pl:(s.p/x.buy-1)*100}:null}).filter(Boolean),tot=rows.reduce((a,r)=>a+r.val,0),sec={},w=[];
-rows.forEach(r=>sec[r.s.sector]=(sec[r.s.sector]||0)+r.val);Object.entries(sec).forEach(([k,v])=>{if(tot&&v/tot>.4)w.push(`Concentration : ${k} = ${Math.round(v/tot*100)} % du portefeuille`)});rows.forEach(r=>{if(tot&&r.val/tot>.25)w.push(`${r.s.n} pèse ${Math.round(r.val/tot*100)} % du portefeuille`)});
-return`<div class="card"><b>Ajouter une position</b><div class="row w" style="margin-top:6px"><select id="pi">${S.map(s=>`<option value="${s.id}">${s.n}</option>`).join("")}</select><input id="pq" type="number" placeholder="Quantité" style="width:90px"><input id="pb" type="number" step="any" placeholder="Prix d’achat" style="width:110px"><button class="btn on" data-add="1">Ajouter</button></div></div>`+w.map(x=>`<div class="fl">⚠️ ${x}</div>`).join("")+(rows.length?`<div class="card" style="overflow-x:auto"><table><tr><th>Action</th><th>Qté</th><th>Valeur</th><th>+/-</th><th>Verdict</th><th></th></tr>${rows.map(r=>`<tr><td>${r.s.n}</td><td>${r.qty}</td><td>${Math.round(r.val)} €</td><td style="color:var(--c${r.pl>=0?1:4})">${r.pl.toFixed(1)}%</td><td>${tag(r.s)}</td><td><button class="btn" data-del="${r.i}">✕</button></td></tr>`).join("")}</table><div style="margin-top:6px"><b>Total : ${Math.round(tot)} €</b></div></div>`:'<div class="card mut">Aucune position. Les données restent sur cet appareil.</div>')}
+<div class="card"><b>Comment lire ce score ${i("Score")}</b><p style="margin:6px 0">Le score de <b>${s.sc}/100</b> additionne 5 critères, chacun noté de 0 à 100 % puis pondéré selon le profil ${PRO} ${i("Profil")}. Verdict : <b>${s.vd}</b> (${s.ct==null?"trop de données manquent":["80+","65 à 79","50 à 64","35 à 49","moins de 35"].map((x,j)=>j==s.ct?x:"").join("")+" selon ce profil : seuils "+q.t.join(" / ")}).</p><p class="mut" style="margin:0">Le score décrit la situation actuelle et ne prédit pas l’avenir. Appuie sur ⓘ pour comprendre chaque terme.</p></div>
+${chartCard(s)}
+<div class="card"><b>Détail des 5 critères</b>${K.map((k,j)=>`<div style="margin:10px 0"><div class="row"><span class="grow">${k} ${i(k)}</span><b>${s.crit[k]} %</b><span class="mut">${(s.crit[k]*q.w[j]/100).toFixed(1)} / ${q.w[j]} pts</span></div><div class="bar"><i style="width:${s.crit[k]}%"></i></div><div class="mut" style="margin-top:3px">${note(s,k)}</div></div>`).join("")}</div>
+<div class="card"><b>Pourquoi ce score ?</b><ul style="margin:6px 0;padding-left:18px">${s.why.map(x=>`<li>${x}</li>`).join("")}</ul></div>
+${s.news&&s.news.length?`<div class="card"><b>Dernières actualités ${i("Actualités")}</b>${s.news.map(n=>`<div style="margin:5px 0">${n.s>0?"🟢":n.s<0?"🔴":"⚪"} ${n.t}</div>`).join("")}<div class="mut">Ton détecté automatiquement : à vérifier en lisant l’article.</div></div>`:""}
+<div class="card"><b>Gestion du risque</b><div>${i("Stop")}Stop suggéré : <b>${s.stop} €</b> · ${i("Objectif")}Objectif : <b>${s.target} €</b> <span class="mut">(${i("ATR")}ATR ${s.atr} €)</span></div>
+<div class="row w" style="margin:8px 0"><label class="mut">Capital €<br><input id="cap" type="number" value="${P.cap}" style="width:110px"></label><label class="mut">Risque max par trade %<br><input id="rk" type="number" step="0.1" value="${P.risk}" style="width:70px"></label></div>
+<div>${i("Taille de position")}Taille de position : <b>${qt} actions</b> (${Math.round(qt*s.p)} €) pour risquer au maximum ${Math.round(P.cap*P.risk/100)} €.</div></div>
+<div class="card mut">${i("Résultats")}Prochains résultats : ${f(s.earn)}<br>${i("PEA")}Pays : ${f(s.country)} · ${s.pea?"PEA probable (à vérifier auprès de ton courtier)":"PEA improbable"}<br>${i("PEG")}PEG ${f(s.peg)} · ${i("Croissance CA")}Croissance CA ${f(s.grev,"%")}<br>Dernier cours enregistré le ${s.last}.${s.xchk!=null?` Écart avec la seconde source (Stooq) : ${s.xchk} %.`:" Seconde source indisponible."}</div>`}
+const cor=(a,b)=>{const n=Math.min(a.length,b.length),x=a.slice(-n),y=b.slice(-n),mx=x.reduce((p,c)=>p+c,0)/n,my=y.reduce((p,c)=>p+c,0)/n;let sxy=0,sx=0,sy=0;for(let j=0;j<n;j++){sxy+=(x[j]-mx)*(y[j]-my);sx+=(x[j]-mx)**2;sy+=(y[j]-my)**2}return sxy/Math.sqrt(sx*sy||1)};
+const rets=id=>{const v=DY&&DY.d[id]&&DY.d[id].v;return v?v.slice(-121).map((y,j,a)=>j?y/a[j-1]-1:0).slice(1):null};
+function pfView(){const rows=PF.map((x,k)=>{const s=S.find(y=>y.id==x.id);return s?{...x,k,s,val:s.p*x.qty,cost:x.buy*x.qty,pl:(s.p/x.buy-1)*100,stop:x.stop||s.stop}:null}).filter(Boolean),tot=rows.reduce((a,r)=>a+r.val,0),cost=rows.reduce((a,r)=>a+r.cost,0),sec={},w=[];
+rows.forEach(r=>sec[r.s.sector]=(sec[r.s.sector]||0)+r.val);Object.entries(sec).forEach(([k,v])=>{if(tot&&v/tot>.4)w.push(`${i("Concentration")}Concentration : ${k} = ${Math.round(v/tot*100)} % du portefeuille`)});
+rows.forEach(r=>{if(tot&&r.val/tot>.25)w.push(`${r.s.n} pèse ${Math.round(r.val/tot*100)} % du portefeuille`);if(r.s.p<=r.stop*1.03)w.push(`${r.s.n} ${r.s.p<=r.stop?"a touché":"approche de"} son ${i("Stop")}stop (${r.stop} €)`)});
+const ids=[...new Set(rows.map(r=>r.id))],cs=[];for(let a=0;a<ids.length;a++)for(let b=a+1;b<ids.length;b++){const x=rets(ids[a]),y=rets(ids[b]);if(x&&y)cs.push(cor(x,y))}
+const ac=cs.length?cs.reduce((a,b)=>a+b,0)/cs.length:null;let vs="";const cac=DY&&DY.d["^FCHI"];
+if(cac&&rows.some(r=>r.date)){let cw=0,cc=0;rows.filter(r=>r.date).forEach(r=>{const j=cac.t.findIndex(t=>t>=r.date);if(j>=0){cw+=r.cost*(cac.v[cac.v.length-1]/cac.v[j]-1)*100;cc+=r.cost}});if(cc)vs=`<div>Performance vs ${i("CAC 40")}CAC 40 depuis tes dates d’achat : CAC 40 <b>${(cw/cc).toFixed(1)} %</b> contre ton portefeuille <b>${((tot/cost-1)*100).toFixed(1)} %</b>.</div>`}
+return`<div class="card"><b>Ajouter une position</b><div class="row w" style="margin-top:6px"><select id="pi">${S.map(s=>`<option value="${s.id}">${s.n}</option>`).join("")}</select><input id="pq" type="number" placeholder="Quantité" style="width:90px"><input id="pb" type="number" step="any" placeholder="Prix d’achat" style="width:105px"><input id="pd" type="date" title="Date d’achat (facultatif)"><input id="ps" type="number" step="any" placeholder="Stop (facultatif)" style="width:120px"><button class="btn on" data-add="1">Ajouter</button></div><div class="mut">Les données restent sur cet appareil.</div></div>`+w.map(x=>`<div class="fl">⚠️ ${x}</div>`).join("")+(rows.length?`<div class="card" style="overflow-x:auto"><table><tr><th>Action</th><th>Qté</th><th>Valeur</th><th>+/-</th><th>Verdict</th><th></th></tr>${rows.map(r=>`<tr><td>${r.s.n}</td><td>${r.qty}</td><td>${Math.round(r.val)} €</td><td style="color:var(--c${r.pl>=0?1:4})">${r.pl.toFixed(1)}%</td><td>${tag(r.s)}</td><td><button class="btn" data-del="${r.k}">✕</button></td></tr>`).join("")}</table><div style="margin:6px 0"><b>Total : ${Math.round(tot)} €</b> (${((tot/cost-1)*100).toFixed(1)} %)</div>${vs}<div>${i("Corrélation")}Corrélation moyenne : ${ac==null?"n/d (au moins 2 actions)":`<b>${ac.toFixed(2)}</b> : ${ac<.4?"bonne diversification":ac<.65?"diversification moyenne":"actions très liées, le risque est plus élevé que prévu"}`}</div></div>`:'<div class="card mut">Aucune position pour l’instant.</div>')}
 function render(){
-document.getElementById("tabs").innerHTML=TB.map(([k,l])=>`<button class="btn ${tab==k&&!sel?"on":""}" data-t="${k}">${l}</button>`).join("");
-document.getElementById("al").innerHTML=S.filter(s=>W.includes(s.id)&&[0,1,3,4].includes(s.cat)).map(s=>`<div class="al" style="border-color:${col(s)}"><b>${s.n}</b> : ${s.verdict} (${s.score}/100)</div>`).join("");
+document.getElementById("pro").innerHTML=`<span class="mut">Profil ${i("Profil")}</span>`+Object.keys(PR).map(k=>`<button class="btn ${PRO==k?"on":""}" data-pr="${k}">${k}</button>`).join("");
+document.getElementById("tabs").innerHTML=[["list","Actions"],["watch","Suivi"],["cmp","Comparer"],["pf","Portefeuille"],["log","Journal"],["gl","Glossaire"],["how","Méthode"]].map(([k,l])=>`<button class="btn ${tab==k&&!sel?"on":""}" data-t="${k}">${l}</button>`).join("");
+document.getElementById("al").innerHTML=S.filter(s=>W.includes(s.id)&&[0,1,3,4].includes(s.ct)).map(s=>`<div class="al" style="border-color:${col(s)}"><b>${s.n}</b> : ${s.vd} (${s.sc}/100)</div>`).join("");
 const v=document.getElementById("v");if(!S.length){v.innerHTML="";return}
 if(sel){v.innerHTML=detail(S.find(x=>x.id==sel));return}
-if(tab=="list"){const secs=[...new Set(S.map(s=>s.sector))].sort();let a=S.filter(s=>(!F.sec||s.sector==F.sec)&&(!F.pea||s.pea)&&(!F.q||s.n.toLowerCase().includes(F.q.toLowerCase())));a.sort((x,y)=>F.sort=="nom"?x.n.localeCompare(y.n):y.score-x.score);
-v.innerHTML=`<div class="row w"><select id="fs"><option value="">Tous secteurs</option>${secs.map(x=>`<option ${F.sec==x?"selected":""}>${x}</option>`).join("")}</select><select id="fo"><option value="score">Tri : score</option><option value="nom" ${F.sort=="nom"?"selected":""}>Tri : nom</option></select><input id="fq" placeholder="Rechercher" value="${F.q}" style="width:130px"><label class="mut"><input type="checkbox" id="fp" ${F.pea?"checked":""}> PEA probable</label></div>`+a.map(card).join("")}
-else if(tab=="watch")v.innerHTML=W.length?S.filter(s=>W.includes(s.id)).map(card).join(""):'<div class="card mut">Touche ☆ sur une action pour la suivre : ses alertes s’affichent en haut.</div>';
-else if(tab=="cmp")v.innerHTML=`<div class="row w">${S.map(s=>`<button class="btn ${cmp.includes(s.id)?"on":""}" data-c="${s.id}">${s.id.split(".")[0]}</button>`).join("")}</div><div class="mut">Choisis jusqu’à 3 actions.</div>`+(cmp.length?`<div class="card" style="overflow-x:auto"><table><tr><th></th>${cmp.map(i=>`<th>${i.split(".")[0]}</th>`).join("")}</tr>`+[["Score",s=>`<b>${s.score}</b>`],["Verdict",s=>s.verdict],["Secteur",s=>s.sector],["PER",s=>f(s.per&&Math.round(s.per*10)/10)],["Risque",s=>s.crit["Risque"]+"%"],...Object.keys(S[0].crit).map(k=>[k,s=>s.crit[k]+"%"])].map(([l,g])=>`<tr><td>${l}</td>${cmp.map(i=>`<td>${g(S.find(x=>x.id==i))}</td>`).join("")}</tr>`).join("")+"</table></div>":"");
-else if(tab=="pf")v.innerHTML=pfView();else if(tab=="log")v.innerHTML=LOG.length?[...LOG].reverse().map(l=>`<div class="card"><b>${l.n}</b> <span class="mut">${l.t}</span><br>${l.de} → ${l.a} (${l.score}/100)</div>`).join(""):'<div class="card mut">Aucun changement de verdict enregistré pour l’instant.</div>';
-else v.innerHTML=`<div class="card"><b>Méthode</b><p>Score /100 pour un profil prudent :<br>• Tendance 20 : moyennes 50/200 j, RSI, MACD<br>• Fondamentaux 25 : PER comparé au secteur, croissance (plafonnée), ROE, marge<br>• Solidité 20 : dette/EBITDA, dividende<br>• Analystes 10 : consensus<br>• Risque 25 : bêta calculé vs CAC 40, volatilité, baisse maximale</p><p>${N.map((n,i)=>`<span class="tag" style="background:var(--c${i})">${n}</span> ${[">= 80","65-79","50-64","35-49","< 35"][i]}`).join("<br>")}</p><p>Garde-fous : plafond à 79 si dette ou bêta élevés ; plafond à Surveiller avant des résultats ; -5 points si le CAC 40 est sous sa moyenne 200 jours ; verdict suspendu si trop de données manquent ; valeurs aberrantes signalées par ⚠️.</p>${BT?`<p><b>Test historique (≈3 ans, composante technique seule)</b><br>Quand le score de tendance était élevé, le rendement moyen à ${BT.h} jours était de ${BT.avg_sig} % (${BT.hit_sig} % de hausses, ${BT.n} signaux), contre ${BT.avg_all} % (${BT.hit_all} %) en moyenne sur tous les jours. Limites : seules les actions actuelles du CAC 40 sont testées, les fondamentaux d’époque ne sont pas disponibles, et le passé ne garantit rien.</p>`:""}<p class="mut">Données Yahoo  Finance, différées d’environ 15 min, parfois erronées. Outil d’analyse, pas un conseil en investissement. Aucune garantie de performance.</p></div>`}
-document.addEventListener("click",e=>{const t=e.target;
-if(t.dataset.t){tab=t.dataset.t;sel=null}else if(t.dataset.w){const i=t.dataset.w;W=W.includes(i)?W.filter(x=>x!=i):[...W,i];sv()}
-else if(t.dataset.add){const q=+document.getElementById("pq").value,b=+document.getElementById("pb").value;if(q>0&&b>0){PF.push({id:document.getElementById("pi").value,qty:q,buy:b});sv()}}else if(t.dataset.del){PF.splice(+t.dataset.del,1);sv()}else if(t.dataset.b)sel=null;else if(t.dataset.c){const i=t.dataset.c;cmp=cmp.includes(i)?cmp.filter(x=>x!=i):[...cmp,i].slice(-3)}
+if(tab=="list"){const secs=[...new Set(S.map(s=>s.sector))].sort();let a=S.filter(s=>(!F.sec||s.sector==F.sec)&&(!F.pea||s.pea)&&(!F.q||s.n.toLowerCase().includes(F.q.toLowerCase())));a.sort((x,y)=>F.sort=="nom"?x.n.localeCompare(y.n):y.sc-x.sc);
+v.innerHTML=`<div class="row w"><select id="fs"><option value="">Tous secteurs</option>${secs.map(x=>`<option ${F.sec==x?"selected":""}>${x}</option>`).join("")}</select><select id="fo"><option value="score">Tri : score</option><option value="nom" ${F.sort=="nom"?"selected":""}>Tri : nom</option></select><input id="fq" placeholder="Rechercher" value="${F.q}" style="width:120px"><label class="mut"><input type="checkbox" id="fp" ${F.pea?"checked":""}> PEA probable ${i("PEA")}</label></div><div class="mut" style="margin:6px 0">Touche une action pour voir le détail. ★ = suivre. ⚠️ = point d’attention.</div>`+a.map(card).join("")}
+else if(tab=="watch")v.innerHTML=W.length?S.filter(s=>W.includes(s.id)).map(card).join(""):'<div class="card mut">Touche ☆ sur une action pour la suivre : ses signaux d’achat ou de vente s’affichent en haut de l’écran.</div>';
+else if(tab=="cmp")v.innerHTML=`<div class="row w">${S.map(s=>`<button class="btn ${cmp.includes(s.id)?"on":""}" data-c="${s.id}">${s.id.split(".")[0]}</button>`).join("")}</div><div class="mut">Choisis jusqu’à 3 actions.</div>`+(cmp.length?`<div class="card" style="overflow-x:auto"><table><tr><th></th>${cmp.map(x=>`<th>${x.split(".")[0]}</th>`).join("")}</tr>`+[["Score",s=>`<b>${s.sc}</b>`],["Verdict",s=>s.vd],["Confiance",s=>s.conf+"%"],["Secteur",s=>s.sector],["PER",s=>f(s.per)],...K.map(k=>[k,s=>s.crit[k]+"%"])].map(([l,g])=>`<tr><td>${l} ${G[l]?i(l):""}</td>${cmp.map(x=>`<td>${g(S.find(y=>y.id==x))}</td>`).join("")}</tr>`).join("")+"</table></div>":"");
+else if(tab=="pf")v.innerHTML=pfView();
+else if(tab=="log")v.innerHTML=LOG.length?[...LOG].reverse().map(l=>`<div class="card"><b>${l.n}</b> <span class="mut">${l.t}</span><br>${l.de} → ${l.a} (${l.score}/100)</div>`).join(""):'<div class="card mut">Aucun changement de verdict enregistré pour l’instant. Les changements apparaîtront ici avec leur date.</div>';
+else if(tab=="gl")v.innerHTML=`<div class="card">${Object.entries(G).map(([k,x])=>`<p style="margin:8px 0"><b>${k}</b><br><span class="mut">${x}</span></p>`).join("")}</div>`;
+else v.innerHTML=`<div class="card"><b>Méthode</b><p>Le score est la somme de 5 critères pondérés selon le profil :</p><table><tr><th>Critère</th>${Object.keys(PR).map(k=>`<th>${k}</th>`).join("")}</tr>${K.map((k,j)=>`<tr><td>${k} ${i(k)}</td>${Object.values(PR).map(p=>`<td>${p.w[j]}</td>`).join("")}</tr>`).join("")}</table>
+<p>${N.map((n,j)=>`<span class="tag" style="background:var(--c${j})">${n}</span> ${i(n)} ${Object.values(PR).map(p=>[">="+p.t[0],p.t[1]+" à "+(p.t[0]-1),p.t[2]+" à "+(p.t[1]-1),p.t[3]+" à "+(p.t[2]-1),"< "+p.t[3]][j]).join(" / ")}`).join("<br>")}</p><div class="mut">Seuils affichés dans l’ordre Prudent / Équilibré / Offensif.</div>
+<p><b>Garde-fous</b> : plafond si dette ou bêta élevés (prudent) ; plafond avant les résultats ; points retirés si le CAC 40 est sous sa moyenne 200 jours ; verdict suspendu si trop de données manquent ; valeurs aberrantes signalées par ⚠️ et baisse de la confiance. Banques, assurances et foncières sont jugées avec le P/B et le ROE à la place de la dette/EBITDA.</p>
+${BT?`<p><b>Test historique ${i("Test historique")}</b> (environ 3 ans, composante technique seule)<br>Quand le score de tendance était élevé, le rendement moyen à ${BT.h} jours était de ${BT.avg_sig} % (${BT.hit_sig} % de hausses, ${BT.n} signaux), contre ${BT.avg_all} % (${BT.hit_all} %) en moyenne sur tous les jours. Limites : seules les actions actuelles du CAC 40 sont testées, les fondamentaux d’époque ne sont pas disponibles.</p>`:""}
+<p class="mut">Données Yahoo Finance (différées d’environ 15 min, parfois erronées), seconde source Stooq. Outil d’analyse, pas un conseil en investissement. Aucune garantie de performance.</p></div>`}
+document.addEventListener("click",e=>{const t=e.target,pop=document.getElementById("pop");
+if(t.dataset.g){pop.innerHTML=`<b>${t.dataset.g}</b><br>${G[t.dataset.g]||""}<div class="mut" style="margin-top:4px">Touche ailleurs pour fermer.</div>`;pop.hidden=false;return}pop.hidden=true;
+if(t.dataset.t){tab=t.dataset.t;sel=null}else if(t.dataset.pr){PRO=t.dataset.pr;sv();apply()}else if(t.dataset.p)CH.p=t.dataset.p;
+else if(t.dataset.w){const x=t.dataset.w;W=W.includes(x)?W.filter(y=>y!=x):[...W,x];sv()}
+else if(t.dataset.add){const q=+document.getElementById("pq").value,b=+document.getElementById("pb").value;if(q>0&&b>0){PF.push({id:document.getElementById("pi").value,qty:q,buy:b,date:document.getElementById("pd").value||null,stop:+document.getElementById("ps").value||null});sv()}}
+else if(t.dataset.del){PF.splice(+t.dataset.del,1);sv()}else if(t.dataset.b)sel=null;else if(t.dataset.c){const x=t.dataset.c;cmp=cmp.includes(x)?cmp.filter(y=>y!=x):[...cmp,x].slice(-3)}
 else if(t.closest("[data-o]"))sel=t.closest("[data-o]").dataset.o;else return;render()});
 document.addEventListener("change",e=>{const t=e.target;
-if(t.id=="fs")F.sec=t.value;else if(t.id=="fp")F.pea=t.checked;else if(t.id=="fo")F.sort=t.value;else if(t.id=="fq")F.q=t.value;
+if(t.id=="fs")F.sec=t.value;else if(t.id=="fp")F.pea=t.checked;else if(t.id=="fo")F.sort=t.value;else if(t.id=="fq")F.q=t.value;else if(t.dataset.ck)CH[t.dataset.ck]=t.checked;
 else if(t.id=="cap"||t.id=="rk"){P.cap=+document.getElementById("cap").value||10000;P.risk=+document.getElementById("rk").value||1;sv()}else return;render()});
-fetch("data.json?"+Date.now()).then(r=>r.json()).then(d=>{S=d.stocks;M=d.market||{};BT=d.backtest;
+document.addEventListener("pointermove",e=>{const el=e.target.closest&&e.target.closest("#ch");if(!el||!CUR)return;const b=el.getBoundingClientRect(),n=CUR.v.length,j=Math.max(0,Math.min(n-1,Math.round((e.clientX-b.left)/b.width*(n-1)))),x=j*320/(n-1),l=document.getElementById("cl");l.setAttribute("x1",x);l.setAttribute("x2",x);document.getElementById("tt").textContent=`${CUR.l[j]} : ${CUR.v[j]} €`+(CUR.d&&CUR.m50&&CUR.m50[j]?` · MM50 ${CUR.m50[j].toFixed(1)}`:"")+(CUR.d&&CUR.rsi&&CUR.rsi[j]?` · RSI ${CUR.rsi[j].toFixed(0)}`:"")});
+const J=u=>fetch(u,{cache:"no-store"}).then(r=>r.json());
+function load(){J("data.json").then(d=>{S=d.stocks;M=d.market||{};BT=d.backtest;apply();
 const age=d.updated?Math.round((Date.now()-new Date(d.updated))/60000):null,old=M.open&&age>30;
-document.getElementById("mk").innerHTML=d.updated?`${M.open?"🟢 Marché ouvert":"⚪ Marché fermé"} · CAC 40 ${f(M.cac)} ${M.cac_ok?"(au-dessus":"(sous"} sa moyenne 200 j) · ${old?"🔴":"✅"} données du ${new Date(d.updated).toLocaleString("fr-FR")}<br>Profil prudent · pas un conseil en investissement · cours différés d’environ 15 min`:"Aucune donnée : lance « Run workflow » dans GitHub > Actions.";
-render()}).catch(()=>document.getElementById("mk").textContent="Erreur de chargement");
-fetch("history.json?"+Date.now()).then(r=>r.json()).then(h=>{LOG=h;if(tab=="log")render()}).catch(()=>{});
+document.getElementById("mk").innerHTML=d.updated?`${M.open?"🟢 Marché ouvert":"⚪ Marché fermé"} ${i("Marché ouvert")} · CAC 40 ${f(M.cac)} ${M.cac_ok?"(au-dessus":"(sous"} de sa moyenne 200 j) ${i("CAC 40")} · ${old?"🔴":"✅"} données du ${new Date(d.updated).toLocaleString("fr-FR")} ${i("Données différées")}<br>Pas un conseil en investissement.`:"Aucune donnée : lance « Run workflow » dans GitHub > Actions.";
+const a=document.activeElement;if(!a||!/INPUT|SELECT/.test(a.tagName))render()}).catch(()=>document.getElementById("mk").textContent="Hors ligne ou erreur de chargement");
+J("intraday.json").then(x=>I=x).catch(()=>{});J("history.json").then(x=>LOG=x).catch(()=>{})}
+J("daily.json").then(x=>{DY=x;render()}).catch(()=>{});load();setInterval(load,300000);
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script></body></html>
